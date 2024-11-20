@@ -3,154 +3,247 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drawing Board</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/konva/9.3.3/konva.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <title>Design Studio</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto p-4">
-        <!-- Tool Selection -->
-        <div class="bg-white rounded-lg shadow-md p-4 mb-4">
-            <div class="flex flex-wrap gap-2">
-                <button onclick="setTool('brush')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                    Brush
-                </button>
-                <button onclick="setTool('eraser')" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
-                    Eraser
-                </button>
-                <input type="color" id="colorPicker" onchange="setColor(this.value)" class="h-10 w-10 cursor-pointer">
-                <input type="range" id="brushSize" min="1" max="50" value="5" onchange="setBrushSize(this.value)" class="w-32">
-                <button onclick="clearCanvas()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
-                    Clear
-                </button>
-                <button onclick="downloadImage()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-                    Download
-                </button>
-                <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()" class="hidden">
-                <button onclick="document.getElementById('imageUpload').click()" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
-                    Import Image
-                </button>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Left Sidebar -->
+        <div class="w-16 bg-gray-800 text-white p-2 flex flex-col items-center space-y-4">
+            <button onclick="setMode('select')" class="p-2 hover:bg-gray-700 rounded" title="Select">
+                <i class="fas fa-mouse-pointer"></i>
+            </button>
+            <button onclick="setMode('draw')" class="p-2 hover:bg-gray-700 rounded" title="Draw">
+                <i class="fas fa-pencil-alt"></i>
+            </button>
+            <button onclick="addRect()" class="p-2 hover:bg-gray-700 rounded" title="Rectangle">
+                <i class="fas fa-square"></i>
+            </button>
+            <button onclick="addCircle()" class="p-2 hover:bg-gray-700 rounded" title="Circle">
+                <i class="fas fa-circle"></i>
+            </button>
+            <button onclick="addText()" class="p-2 hover:bg-gray-700 rounded" title="Text">
+                <i class="fas fa-text-height"></i>
+            </button>
+            <button onclick="addImage()" class="p-2 hover:bg-gray-700 rounded" title="Image">
+                <i class="fas fa-image"></i>
+            </button>
+            <input type="file" id="imageInput" class="hidden" accept="image/*">
+        </div>
+
+        <!-- Properties Panel -->
+        <div class="w-64 bg-white border-r border-gray-200 p-4 space-y-4">
+            <div class="space-y-2">
+                <h3 class="font-bold text-gray-700">Properties</h3>
+                <div>
+                    <label class="block text-sm text-gray-600">Color</label>
+                    <input type="color" id="colorPicker" class="w-full h-10" onchange="updateColor(this.value)">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600">Brush Size</label>
+                    <input type="range" id="brushSize" min="1" max="50" value="5" class="w-full" onchange="updateBrushSize(this.value)">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600">Opacity</label>
+                    <input type="range" id="opacity" min="0" max="100" value="100" class="w-full" onchange="updateOpacity(this.value)">
+                </div>
+            </div>
+            
+            <!-- Text Properties -->
+            <div id="textProperties" class="space-y-2 hidden">
+                <h3 class="font-bold text-gray-700">Text Properties</h3>
+                <select id="fontFamily" class="w-full p-2 border rounded" onchange="updateTextFont(this.value)">
+                    <option value="Arial">Arial</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                    <option value="Georgia">Georgia</option>
+                </select>
+                <input type="number" id="fontSize" value="20" class="w-full p-2 border rounded" onchange="updateTextSize(this.value)">
             </div>
         </div>
 
-        <!-- Canvas Container -->
-        <div id="container" class="bg-white rounded-lg shadow-md overflow-hidden"></div>
+        <!-- Canvas Area -->
+        <div class="flex-1 relative">
+            <div class="absolute top-0 right-0 p-4 space-x-2">
+                <button onclick="downloadCanvas()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Download
+                </button>
+                <button onclick="clearCanvas()" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                    Clear
+                </button>
+            </div>
+            <canvas id="canvas"></canvas>
+        </div>
     </div>
 
     <script>
-        // Initialize Konva Stage
-        const stage = new Konva.Stage({
-            container: 'container',
-            width: window.innerWidth * 0.8,
-            height: window.innerHeight * 0.7,
+        // Initialize Fabric Canvas
+        const canvas = new fabric.Canvas('canvas', {
+            isDrawingMode: false,
+            width: window.innerWidth - 320, // Accounting for sidebars
+            height: window.innerHeight,
+            backgroundColor: 'white'
         });
 
-        const layer = new Konva.Layer();
-        stage.add(layer);
-
-        // Drawing state
-        let isPaint = false;
-        let currentTool = 'brush';
+        // Drawing Settings
         let currentColor = '#000000';
-        let currentSize = 5;
+        let currentMode = 'select';
 
-        // Create background
-        const background = new Konva.Rect({
-            x: 0,
-            y: 0,
-            width: stage.width(),
-            height: stage.height(),
-            fill: 'white',
-        });
-        layer.add(background);
+        // Mode switching
+        function setMode(mode) {
+            currentMode = mode;
+            canvas.isDrawingMode = mode === 'draw';
+            if (mode === 'draw') {
+                canvas.freeDrawingBrush.color = currentColor;
+                canvas.freeDrawingBrush.width = parseInt(document.getElementById('brushSize').value);
+            }
+        }
 
-        // Event listeners
-        stage.on('mousedown touchstart', () => {
-            isPaint = true;
-            const pos = stage.getPointerPosition();
-            lastLine = new Konva.Line({
-                stroke: currentTool === 'eraser' ? 'white' : currentColor,
-                strokeWidth: currentSize,
-                points: [pos.x, pos.y],
-                lineCap: 'round',
-                lineJoin: 'round',
+        // Shape Functions
+        function addRect() {
+            const rect = new fabric.Rect({
+                left: 100,
+                top: 100,
+                fill: currentColor,
+                width: 100,
+                height: 100,
+                opacity: document.getElementById('opacity').value / 100
             });
-            layer.add(lastLine);
-        });
-
-        stage.on('mousemove touchmove', () => {
-            if (!isPaint) return;
-            const pos = stage.getPointerPosition();
-            const newPoints = lastLine.points().concat([pos.x, pos.y]);
-            lastLine.points(newPoints);
-            layer.batchDraw();
-        });
-
-        stage.on('mouseup touchend', () => {
-            isPaint = false;
-        });
-
-        // Tool functions
-        function setTool(tool) {
-            currentTool = tool;
+            canvas.add(rect);
+            canvas.setActiveObject(rect);
         }
 
-        function setColor(color) {
+        function addCircle() {
+            const circle = new fabric.Circle({
+                left: 100,
+                top: 100,
+                fill: currentColor,
+                radius: 50,
+                opacity: document.getElementById('opacity').value / 100
+            });
+            canvas.add(circle);
+            canvas.setActiveObject(circle);
+        }
+
+        function addText() {
+            const text = new fabric.IText('Double Click to Edit', {
+                left: 100,
+                top: 100,
+                fontFamily: 'Arial',
+                fontSize: 20,
+                fill: currentColor,
+                opacity: document.getElementById('opacity').value / 100
+            });
+            canvas.add(text);
+            canvas.setActiveObject(text);
+            document.getElementById('textProperties').classList.remove('hidden');
+        }
+
+        // Image Functions
+        function addImage() {
+            document.getElementById('imageInput').click();
+        }
+
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                fabric.Image.fromURL(event.target.result, function(img) {
+                    img.scaleToWidth(200);
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Update Properties
+        function updateColor(color) {
             currentColor = color;
+            if (canvas.isDrawingMode) {
+                canvas.freeDrawingBrush.color = color;
+            }
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                if (activeObject.type === 'i-text') {
+                    activeObject.set('fill', color);
+                } else {
+                    activeObject.set('fill', color);
+                }
+                canvas.renderAll();
+            }
         }
 
-        function setBrushSize(size) {
-            currentSize = size;
+        function updateBrushSize(size) {
+            if (canvas.isDrawingMode) {
+                canvas.freeDrawingBrush.width = parseInt(size);
+            }
         }
 
-        function clearCanvas() {
-            layer.destroyChildren();
-            layer.add(background);
-            layer.draw();
+        function updateOpacity(opacity) {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                activeObject.set('opacity', opacity / 100);
+                canvas.renderAll();
+            }
         }
 
-        function downloadImage() {
-            const dataURL = stage.toDataURL();
+        function updateTextFont(font) {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject && activeObject.type === 'i-text') {
+                activeObject.set('fontFamily', font);
+                canvas.renderAll();
+            }
+        }
+
+        function updateTextSize(size) {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject && activeObject.type === 'i-text') {
+                activeObject.set('fontSize', parseInt(size));
+                canvas.renderAll();
+            }
+        }
+
+        // Canvas Operations
+        function downloadCanvas() {
+            const dataURL = canvas.toDataURL({
+                format: 'png',
+                quality: 1
+            });
             const link = document.createElement('a');
-            link.download = 'drawing.png';
+            link.download = 'design.png';
             link.href = dataURL;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
 
-        function loadImage() {
-            const file = document.getElementById('imageUpload').files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = new Image();
-                    img.onload = function() {
-                        const konvaImage = new Konva.Image({
-                            x: 0,
-                            y: 0,
-                            image: img,
-                            width: stage.width(),
-                            height: stage.height(),
-                        });
-                        clearCanvas();
-                        layer.add(konvaImage);
-                        layer.draw();
-                    };
-                    img.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
+        function clearCanvas() {
+            canvas.clear();
+            canvas.backgroundColor = 'white';
+            canvas.renderAll();
         }
 
+        // Handle canvas selection
+        canvas.on('selection:created', function(e) {
+            if (e.target.type === 'i-text') {
+                document.getElementById('textProperties').classList.remove('hidden');
+            } else {
+                document.getElementById('textProperties').classList.add('hidden');
+            }
+        });
+
+        canvas.on('selection:cleared', function() {
+            document.getElementById('textProperties').classList.add('hidden');
+        });
+
         // Responsive canvas
-        window.addEventListener('resize', () => {
-            stage.width(window.innerWidth * 0.8);
-            stage.height(window.innerHeight * 0.7);
-            background.width(stage.width());
-            background.height(stage.height());
-            layer.draw();
+        window.addEventListener('resize', function() {
+            canvas.setWidth(window.innerWidth - 320);
+            canvas.setHeight(window.innerHeight);
+            canvas.renderAll();
         });
     </script>
 </body>
