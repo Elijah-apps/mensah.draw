@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing Board</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/konva/9.3.3/konva.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-4">
+        <!-- Tool Selection -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+            <div class="flex flex-wrap gap-2">
+                <button onclick="setTool('brush')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Brush
+                </button>
+                <button onclick="setTool('eraser')" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                    Eraser
+                </button>
+                <input type="color" id="colorPicker" onchange="setColor(this.value)" class="h-10 w-10 cursor-pointer">
+                <input type="range" id="brushSize" min="1" max="50" value="5" onchange="setBrushSize(this.value)" class="w-32">
+                <button onclick="clearCanvas()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    Clear
+                </button>
+                <button onclick="downloadImage()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                    Download
+                </button>
+                <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()" class="hidden">
+                <button onclick="document.getElementById('imageUpload').click()" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                    Import Image
+                </button>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="container" class="bg-white rounded-lg shadow-md overflow-hidden"></div>
+    </div>
+
+    <script>
+        // Initialize Konva Stage
+        const stage = new Konva.Stage({
+            container: 'container',
+            width: window.innerWidth * 0.8,
+            height: window.innerHeight * 0.7,
+        });
+
+        const layer = new Konva.Layer();
+        stage.add(layer);
+
+        // Drawing state
+        let isPaint = false;
+        let currentTool = 'brush';
+        let currentColor = '#000000';
+        let currentSize = 5;
+
+        // Create background
+        const background = new Konva.Rect({
+            x: 0,
+            y: 0,
+            width: stage.width(),
+            height: stage.height(),
+            fill: 'white',
+        });
+        layer.add(background);
+
+        // Event listeners
+        stage.on('mousedown touchstart', () => {
+            isPaint = true;
+            const pos = stage.getPointerPosition();
+            lastLine = new Konva.Line({
+                stroke: currentTool === 'eraser' ? 'white' : currentColor,
+                strokeWidth: currentSize,
+                points: [pos.x, pos.y],
+                lineCap: 'round',
+                lineJoin: 'round',
+            });
+            layer.add(lastLine);
+        });
+
+        stage.on('mousemove touchmove', () => {
+            if (!isPaint) return;
+            const pos = stage.getPointerPosition();
+            const newPoints = lastLine.points().concat([pos.x, pos.y]);
+            lastLine.points(newPoints);
+            layer.batchDraw();
+        });
+
+        stage.on('mouseup touchend', () => {
+            isPaint = false;
+        });
+
+        // Tool functions
+        function setTool(tool) {
+            currentTool = tool;
+        }
+
+        function setColor(color) {
+            currentColor = color;
+        }
+
+        function setBrushSize(size) {
+            currentSize = size;
+        }
+
+        function clearCanvas() {
+            layer.destroyChildren();
+            layer.add(background);
+            layer.draw();
+        }
+
+        function downloadImage() {
+            const dataURL = stage.toDataURL();
+            const link = document.createElement('a');
+            link.download = 'drawing.png';
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function loadImage() {
+            const file = document.getElementById('imageUpload').files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const konvaImage = new Konva.Image({
+                            x: 0,
+                            y: 0,
+                            image: img,
+                            width: stage.width(),
+                            height: stage.height(),
+                        });
+                        clearCanvas();
+                        layer.add(konvaImage);
+                        layer.draw();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Responsive canvas
+        window.addEventListener('resize', () => {
+            stage.width(window.innerWidth * 0.8);
+            stage.height(window.innerHeight * 0.7);
+            background.width(stage.width());
+            background.height(stage.height());
+            layer.draw();
+        });
+    </script>
+</body>
+</html>
